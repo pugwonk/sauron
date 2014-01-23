@@ -31,6 +31,7 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
 
     private boolean              mIsColorSelected = false;
     private Mat                  mRgba;
+    private Mat                  mRgbaPrev;
     private Scalar               mBlobColorRgba;
     private Scalar               mBlobColorHsv;
     private ColorBlobDetector    mDetector;
@@ -163,6 +164,13 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
 
     public Mat onCameraFrame(CvCameraViewFrame inputFrame) {
         mRgba = inputFrame.rgba();
+        Mat diff = new Mat(mRgba.width(), mRgba.height(), CvType.CV_8UC4);
+        if (mRgbaPrev != null) {
+        	Core.absdiff(mRgba, mRgbaPrev, diff);
+            mRgbaPrev.release();
+            //return diff;
+            diff.release();
+        }
 
         if (mIsColorSelected) {
             mDetector.process(mRgba);
@@ -177,6 +185,7 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
             mSpectrum.copyTo(spectrumLabel);
         }
 
+        mRgbaPrev = mRgba;
         return mRgba;
     }
 
