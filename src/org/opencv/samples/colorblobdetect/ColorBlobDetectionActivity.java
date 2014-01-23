@@ -1,5 +1,6 @@
 package org.opencv.samples.colorblobdetect;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.opencv.android.BaseLoaderCallback;
@@ -99,7 +100,7 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
     }
 
     public void onCameraViewStarted(int width, int height) {
-        mRgba = new Mat(height, width, CvType.CV_8UC4);
+        mRgba = new Mat(height, width, CvType.CV_8U);
         mDetector = new ColorBlobDetector();
         mSpectrum = new Mat();
         mBlobColorRgba = new Scalar(255);
@@ -164,12 +165,24 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
 
     public Mat onCameraFrame(CvCameraViewFrame inputFrame) {
         mRgba = inputFrame.rgba();
-        Mat diff = new Mat(mRgba.width(), mRgba.height(), CvType.CV_8UC4);
+        
+        //Mat diff = null;
+        // Make BW version of frame
+        Mat bw = new Mat(mRgba.height(), mRgba.width(), CvType.CV_8UC1);
+        Imgproc.cvtColor(mRgba, bw, Imgproc.COLOR_RGB2GRAY);
+
+        Mat diff = new Mat(mRgba.height(), mRgba.width(), CvType.CV_8UC1);
         if (mRgbaPrev != null) {
-        	Core.absdiff(mRgba, mRgbaPrev, diff);
+            //Imgproc.cvtColor(mRgba, mRgba, Imgproc.COLOR_RGB2GRAY);
+            //diff = mRgba; 
+        	Core.absdiff(bw, bw, diff);
+            //Imgproc.cvtColor(diff, diff, Imgproc.COLOR_RGB2GRAY);
+            Imgproc.threshold(diff, diff, 64, 255, Imgproc.THRESH_BINARY);
+            //List<MatOfPoint> contours = new ArrayList<MatOfPoint>();
+            //Mat mHierarchy = new Mat(0, 0, CvType.CV_8U);
+            //Imgproc.findContours(diff, contours, mHierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
             mRgbaPrev.release();
-            //return diff;
-            diff.release();
+            //diff.release();
         }
 
         if (mIsColorSelected) {
@@ -185,8 +198,8 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
             mSpectrum.copyTo(spectrumLabel);
         }
 
-        mRgbaPrev = mRgba;
-        return mRgba;
+        mRgbaPrev = bw;
+        return diff; //mRgba;
     }
 
     private Scalar converScalarHsv2Rgba(Scalar hsvColor) {
