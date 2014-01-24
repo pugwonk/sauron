@@ -27,7 +27,7 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.view.View.OnTouchListener;
 
-public class ColorBlobDetectionActivity extends Activity implements OnTouchListener, CvCameraViewListener2 {
+public class ColorBlobDetectionActivity extends Activity implements CvCameraViewListener2 {
     private static final String  TAG              = "OCVSample::Activity";
 
     private boolean              mIsColorSelected = false;
@@ -50,7 +50,6 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
                 {
                     Log.i(TAG, "OpenCV loaded successfully");
                     mOpenCvCameraView.enableView();
-                    mOpenCvCameraView.setOnTouchListener(ColorBlobDetectionActivity.this);
                 } break;
                 default:
                 {
@@ -113,100 +112,27 @@ public class ColorBlobDetectionActivity extends Activity implements OnTouchListe
         mRgba.release();
     }
 
-    public boolean onTouch(View v, MotionEvent event) {
-        int cols = mRgba.cols();
-        int rows = mRgba.rows();
-
-        int xOffset = (mOpenCvCameraView.getWidth() - cols) / 2;
-        int yOffset = (mOpenCvCameraView.getHeight() - rows) / 2;
-
-        int x = (int)event.getX() - xOffset;
-        int y = (int)event.getY() - yOffset;
-
-        Log.i(TAG, "Touch image coordinates: (" + x + ", " + y + ")");
-
-        if ((x < 0) || (y < 0) || (x > cols) || (y > rows)) return false;
-
-        Rect touchedRect = new Rect();
-
-        touchedRect.x = (x>4) ? x-4 : 0;
-        touchedRect.y = (y>4) ? y-4 : 0;
-
-        touchedRect.width = (x+4 < cols) ? x + 4 - touchedRect.x : cols - touchedRect.x;
-        touchedRect.height = (y+4 < rows) ? y + 4 - touchedRect.y : rows - touchedRect.y;
-
-        Mat touchedRegionRgba = mRgba.submat(touchedRect);
-
-        Mat touchedRegionHsv = new Mat();
-        Imgproc.cvtColor(touchedRegionRgba, touchedRegionHsv, Imgproc.COLOR_RGB2HSV_FULL);
-
-        // Calculate average color of touched region
-        mBlobColorHsv = Core.sumElems(touchedRegionHsv);
-        int pointCount = touchedRect.width*touchedRect.height;
-        for (int i = 0; i < mBlobColorHsv.val.length; i++)
-            mBlobColorHsv.val[i] /= pointCount;
-
-        mBlobColorRgba = converScalarHsv2Rgba(mBlobColorHsv);
-
-        Log.i(TAG, "Touched rgba color: (" + mBlobColorRgba.val[0] + ", " + mBlobColorRgba.val[1] +
-                ", " + mBlobColorRgba.val[2] + ", " + mBlobColorRgba.val[3] + ")");
-
-        mDetector.setHsvColor(mBlobColorHsv);
-
-        Imgproc.resize(mDetector.getSpectrum(), mSpectrum, SPECTRUM_SIZE);
-
-        mIsColorSelected = true;
-
-        touchedRegionRgba.release();
-        touchedRegionHsv.release();
-
-        return false; // don't need subsequent touch events
-    }
-
     public Mat onCameraFrame(CvCameraViewFrame inputFrame) {
+    	// Some significant thievery from https://code.google.com/p/javacv/source/browse/samples/MotionDetector.java?r=02385ce192fb82f1668386e55ff71ed8d6f88ae3
+    	
         mRgba = inputFrame.rgba();
         
-        //Mat diff = null;
         // Make BW version of frame
         Mat bw = new Mat(mRgba.height(), mRgba.width(), CvType.CV_8UC1);
         Imgproc.cvtColor(mRgba, bw, Imgproc.COLOR_RGB2GRAY);
 
         Mat diff = new Mat(mRgba.height(), mRgba.width(), CvType.CV_8UC1);
         if (mRgbaPrev != null) {
-            //Imgproc.cvtColor(mRgba, mRgba, Imgproc.COLOR_RGB2GRAY);
-            //diff = mRgba; 
-        	Core.absdiff(bw, bw, diff);
-            //Imgproc.cvtColor(diff, diff, Imgproc.COLOR_RGB2GRAY);
+        	Core.absdiff(bw, mRgbaPrev, diff);
             Imgproc.threshold(diff, diff, 64, 255, Imgproc.THRESH_BINARY);
-            //List<MatOfPoint> contours = new ArrayList<MatOfPoint>();
-            //Mat mHierarchy = new Mat(0, 0, CvType.CV_8U);
+            List<MatOfPoint> contours = new ArrayList<MatOfPoint>();
+            Mat mHierarchy = new Mat(0, 0, CvType.CV_8U);
             //Imgproc.findContours(diff, contours, mHierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
             mRgbaPrev.release();
             //diff.release();
         }
 
-        if (mIsColorSelected) {
-            mDetector.process(mRgba);
-            List<MatOfPoint> contours = mDetector.getContours();
-            Log.e(TAG, "Contours count: " + contours.size());
-            Imgproc.drawContours(mRgba, contours, -1, CONTOUR_COLOR);
-
-            Mat colorLabel = mRgba.submat(4, 68, 4, 68);
-            colorLabel.setTo(mBlobColorRgba);
-
-            Mat spectrumLabel = mRgba.submat(4, 4 + mSpectrum.rows(), 70, 70 + mSpectrum.cols());
-            mSpectrum.copyTo(spectrumLabel);
-        }
-
         mRgbaPrev = bw;
         return diff; //mRgba;
-    }
-
-    private Scalar converScalarHsv2Rgba(Scalar hsvColor) {
-        Mat pointMatRgba = new Mat();
-        Mat pointMatHsv = new Mat(1, 1, CvType.CV_8UC3, hsvColor);
-        Imgproc.cvtColor(pointMatHsv, pointMatRgba, Imgproc.COLOR_HSV2RGB_FULL, 4);
-
-        return new Scalar(pointMatRgba.get(0, 0));
     }
 }
