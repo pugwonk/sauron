@@ -12,8 +12,6 @@ import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.MatOfPoint2f;
-import org.opencv.core.Point;
-import org.opencv.core.Rect;
 import org.opencv.core.RotatedRect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
@@ -24,25 +22,15 @@ import org.opencv.imgproc.Imgproc;
 import android.app.Activity;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.MotionEvent;
-import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
-import android.view.View.OnTouchListener;
 
 public class ColorBlobDetectionActivity extends Activity implements
 		CvCameraViewListener2 {
 	private static final String TAG = "OCVSample::Activity";
 
-	private boolean mIsColorSelected = false;
 	private Mat mRgba;
 	private Mat mRgbaPrev;
-	private Scalar mBlobColorRgba;
-	private Scalar mBlobColorHsv;
-	private ColorBlobDetector mDetector;
-	private Mat mSpectrum;
-	private Size SPECTRUM_SIZE;
-	private Scalar CONTOUR_COLOR;
 
 	private CameraBridgeViewBase mOpenCvCameraView;
 
@@ -104,12 +92,6 @@ public class ColorBlobDetectionActivity extends Activity implements
 
 	public void onCameraViewStarted(int width, int height) {
 		mRgba = new Mat(height, width, CvType.CV_8U);
-		mDetector = new ColorBlobDetector();
-		mSpectrum = new Mat();
-		mBlobColorRgba = new Scalar(255);
-		mBlobColorHsv = new Scalar(255);
-		SPECTRUM_SIZE = new Size(200, 64);
-		CONTOUR_COLOR = new Scalar(255, 0, 0, 255);
 	}
 
 	public void onCameraViewStopped() {
@@ -125,6 +107,10 @@ public class ColorBlobDetectionActivity extends Activity implements
 		// Make BW version of frame
 		Mat bw = new Mat(mRgba.height(), mRgba.width(), CvType.CV_8UC1);
 		Imgproc.cvtColor(mRgba, bw, Imgproc.COLOR_RGB2GRAY);
+		// The blur was from the code above - not entirely sure whether it helps
+		// things much or not but it does seem to stop some camera noise from
+		// triggering the detector
+		Imgproc.GaussianBlur(bw, bw, new Size(5, 5), 0);
 
 		// Prepare diff frame
 		Mat diff = new Mat(mRgba.height(), mRgba.width(), CvType.CV_8UC1);
